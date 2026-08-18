@@ -1,20 +1,20 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import strokeData from 'hanzi-writer-data/一.json'
 import './App.css'
 
 const SIZE = 400
 const SCALE = SIZE / 1024
 
-// hanzi-writer-data's Y axis increases upward from a baseline near 900.
-// Flip it and scale it down to fit our canvas.
 function toCanvasPoints(points) {
   return points.map(([x, y]) => [x * SCALE, (900 - y) * SCALE])
 }
 
 function App() {
   const canvasRef = useRef(null)
+  const [drawing, setDrawing] = useState(false)
+  const currentStroke = useRef([])
 
-  useEffect(() => {
+  function draw() {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, SIZE, SIZE)
@@ -41,11 +41,51 @@ function App() {
       points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
       ctx.stroke()
     })
-  }, [])
+
+    // your in-progress stroke, in red
+    if (currentStroke.current.length > 1) {
+      ctx.strokeStyle = '#c00'
+      ctx.lineWidth = 8
+      ctx.beginPath()
+      currentStroke.current.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
+      ctx.stroke()
+    }
+  }
+
+  useEffect(draw, [])
+
+  function getPos(e) {
+    const rect = canvasRef.current.getBoundingClientRect()
+    return [e.clientX - rect.left, e.clientY - rect.top]
+  }
+
+  function handleMouseDown(e) {
+    setDrawing(true)
+    currentStroke.current = [getPos(e)]
+  }
+
+  function handleMouseMove(e) {
+    if (!drawing) return
+    currentStroke.current = [...currentStroke.current, getPos(e)]
+    draw()
+  }
+
+  function handleMouseUp() {
+    setDrawing(false)
+    console.log('finished stroke:', currentStroke.current)
+  }
 
   return (
     <div className="page">
-      <canvas ref={canvasRef} width={SIZE} height={SIZE} />
+      <canvas
+        ref={canvasRef}
+        width={SIZE}
+        height={SIZE}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      />
     </div>
   )
 }
